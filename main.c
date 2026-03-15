@@ -1,12 +1,14 @@
 #include <stdio.h>
 #include "curst_std.h"
 #include "curst_match.h"
+#include "curst_fmt.h"
 
 #define MyTuple(A, B) _struct(\
     MyTuple, (), (A, B),\
     _field(a, A),\
     _field(b, B))
 #define _visit_MyTuple_debug(...) _derive(__VA_ARGS__)
+#define _visit_MyTuple_fmt(...)    _derive(__VA_ARGS__)
 #define _visit_MyTuple_eq(...)    _derive(__VA_ARGS__)
 
 #define Tree(N, T) _struct(\
@@ -24,17 +26,17 @@
 #define _visit_User_drop(...)  _derive(__VA_ARGS__)
 #define _visit_User_eq(...)    _derive(__VA_ARGS__)
 
-#define Res(T, E) _enum(\
-    Res, (), (T, E),\
+#define Result(T, E) _enum(\
+    Result, (), (T, E),\
     _variant(Ok, T),\
     _variant(Err, E),)
-#define _visit_Res_debug(...) _derive(__VA_ARGS__)
+#define _visit_Result_debug(...) _derive(__VA_ARGS__)
 
-#define Opt(T) _enum(\
-    Opt, (), (T),\
+#define Option(T) _enum(\
+    Option, (), (T),\
     _variant(Some, T),\
     _variant(None, unit))
-#define _visit_Opt_debug(...) _derive(__VA_ARGS__)
+#define _visit_Option_debug(...) _derive(__VA_ARGS__)
 
 #define VISITOR debug
 _mono_with_alias(Arr(2, i32), my_alias)
@@ -43,14 +45,17 @@ _impl_with_alias(MyTuple(i32, i32), mt_debug, _This *this) {
 }
 _mono(User)
 #undef VISITOR
+#define VISITOR fmt
+_mono(MyTuple(i32, i32))
+#undef VISITOR
 
 int main() {
     {
-        _t(Vec(Vec(Vec(i32)))) t = { 0 }, o = { 0 };
+        _t(Vec(Vec(Vec(i32)))) t = {}, o = {};
         Vec_push(&t, Vec_new(Vec(i32)));
-        Vec_push(&t.ptr[0], Vec_with_capacity(i32, 5));
+        Vec_push(&t.as_ptr[0], Vec_with_capacity(i32, 5));
         for (int i = 0; i < 10; i++) {
-            Vec_push(&t.ptr[0].ptr[0], i);
+            Vec_push(&t.as_ptr[0].as_ptr[0], i);
         }
         #define VISITOR debug
         _visit(Vec(Vec(Vec(i32))), &t);
@@ -64,14 +69,14 @@ int main() {
         printf("eq: %d\n",res);
     }
     {
-        _t(Arr(2, Arr(3, i32))) t = { { 1, 2, 3 }, { 4, 5, 6 } };
+        _t(Arr(2, Arr(3, i32))) t = {{ {{ 1, 2, 3 }}, {{ 4, 5, 6 }} }};
         #define VISITOR debug
         _visit(Arr(2, Arr(3, i32)), &t);
         #undef VISITOR
         printf("\n");
     }
     {
-        _t(Arr(3, i32)) t = { 1, 2, 3 };
+        _t(Arr(3, i32)) t = {{ 1, 2, 3 }};
         #define VISITOR debug
         _visit(Arr(3, i32), &t);
         #undef VISITOR
@@ -137,25 +142,25 @@ int main() {
         #undef VISITOR
     }
     {
-        let(h, HashMap_new(i32, chr));
+        let(h, HashMap_new(i32, char));
         for (int i = 0; i < 10; i++) {
             HashMap_insert(&h, i, '0'+i);
             #define VISITOR debug
-            _visit(HashMap(i32, chr), &h);
+            _visit(HashMap(i32, char), &h);
             #undef VISITOR
             printf("\n");
         }
         #define VISITOR clone
-        let(h2, _visit(HashMap(i32, chr), &h));
+        let(h2, _visit(HashMap(i32, char), &h));
         #undef VISITOR
         printf("h2: ");
         #define VISITOR debug
-        _visit(HashMap(i32, chr), &h2);
+        _visit(HashMap(i32, char), &h2);
         #undef VISITOR
         printf("\n");
         for (int i = 0; i < 12; i++) {
-            char *v = HashMap_get(&h, i);
-            char *v2 = HashMap_get(&h2, i);
+            _char *v = HashMap_get(&h, i);
+            _char *v2 = HashMap_get(&h2, i);
             if (v) {
                 printf("h[%d] = '%c'\n", i, *v);
             } else {
@@ -169,44 +174,76 @@ int main() {
         }
     }
     {
-        let(h, HashMap_new(i32, Vec(chr)));
+        let(h, HashMap_new(i32, Vec(char)));
         for (int i = 0; i < 10; i++) {
-            let(v, Vec_with_capacity(chr, i));
+            let(v, Vec_with_capacity(char, i));
             for (int j = 0; j < i; j++) {
                 Vec_push(&v, '0'+j);
             }
+	    Vec_extend(&v, v);
             HashMap_insert(&h, i, v);
         }
         #define VISITOR debug
-        _visit(HashMap(i32, Vec(chr)), &h);
+        _visit(HashMap(i32, Vec(char)), &h);
         #undef VISITOR
         printf("\n");
-        HashMap_get(&h, 5)->ptr[3] = '@';
+        HashMap_get(&h, 5)->as_ptr[3] = '@';
         for (int i = 0; i < 10; i++) {
             let(v, HashMap_get(&h, i));
             printf("h[%d]: ", i);
             #define VISITOR debug
-            _visit(Vec(chr), v);
+            _visit(Vec(char), v);
             #undef VISITOR
             printf("\n");
         }
         #define VISITOR drop
-        _visit(HashMap(i32, Vec(chr)), &h);
+        _visit(HashMap(i32, Vec(char)), &h);
         #undef VISITOR
     }
     {
-        _t(Res(bool, i32)) r = { .Ok = false };
+        _t(Result(bool, i32)) r = { .Ok = false };
         #define VISITOR debug
-        _visit(Res(bool, i32), &r);
+        _visit(Result(bool, i32), &r);
         #undef VISITOR
         printf("\n");
         _match(&r) {
-            _arm(_pe(Res, Ok, _pb(x))) {
-                printf("Res::Ok(%d)\n", *x);
+            _arm(_pe(Result, Ok, _pb(x))) {
+                printf("Result::Ok(%d)\n", *x);
             }
-            _arm(_pe(Res, Err, _pb(x))) {
-                printf("Res::Err(%d)\n", *x);
+            _arm(_pe(Result, Err, _pb(x))) {
+                printf("Result::Err(%d)\n", *x);
             }
         }
     }
+    {
+        _t(Arr(6, i32)) a = {{ 1, 2, 3, 4, 5, 6 }};
+	// _foreach(i, in(a)) {
+	// 	printf("%d ", i);
+	// }
+	printf("\n");
+        _t(Vec(i32)) v = {};
+	let(s, _as_slice(&v));
+	s = _as_slice(&a);
+	printf("%d %d %d\n", sizeof(a), sizeof(v), sizeof(s));
+    }
+
+    let(hello, Str_new("hello"));
+    let(s, String_new());
+    Vec_extend(&s, hello);
+    Vec_extend(&s, Str_new(" world"));
+    Vec_push(&s, '!');
+#define VISITOR debug
+    _visit(Str, &s);
+#undef VISITOR
+    Vec_push(&s, 0);
+    printf("\n");
+    printf("String { len: %d, cap: %d, ptr: \"%s\" }\n", s.len, s.cap, s.as_ptr);
+
+    _t(MyTuple(i32, i32)) t = { .a = 42, .b = 1337 };
+    _fat_ptr l = Fat_new(MyTuple(i32, i32), fmt, &t);
+
+    s.len--;
+    String_writeln_fmt(&s, "--%?--", l);
+    println("==%?==", l);
+    printf("String { len: %d, cap: %d, ptr: \"%s\" }\n", s.len, s.cap, s.as_ptr);
 }

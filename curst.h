@@ -30,24 +30,35 @@
 #define _split(...) __VA_ARGS__
 
 // ===== Visitors =====
+#define _visitor_typeof(V, Tt) (_visitor_##V##_ret(Tt)(*)_visitor_##V##_sig(Tt))
 #define _visitor(I) _cat3(_visitor_, VISITOR, _##I)
-#define _visit_mono(T) _with(_cat2(_visit_##T##_, VISITOR), _visitor(args))
+#define _visit_mono(Tn) _visit_mono1(VISITOR, Tn)
+#define _visit_mono1(...) _visit_mono2(__VA_ARGS__)
+#define _visit_mono2(V, Tn) _visit_mono3(_visit_##Tn##_##V, _visitor_##V##_args)
+//#define _visit_mono3(...) _visit_mono0(__VA_ARGS__)
+#define _visit_mono3(M, ...) M(__VA_ARGS__)
 #define _visit_poly(T, ...) _with(_cat2(_visit_##T##_, VISITOR), __VA_ARGS__, _visitor(args))
 #define _visit(T, ...) _forward(__v T, __VA_ARGS__)
 
-#define _void (void)0
 #define _forward(V, ...) _cat2(_forward_, VISITOR)(V, __VA_ARGS__)
-#define _shadow(v, x) typeof(x) _##v = x; typeof(_##v) v = _##v
+#define _shadow(v, ...) typeof(__VA_ARGS__) _##v = (__VA_ARGS__); typeof(_##v) v = _##v
 #define _derive(Tn, Tv, ...) Tv
 #define _dispatch(Tn, Tv, ...) _with(__dispatch, Tn, VISITOR, _visitor(args))
 #define __dispatch(Tn, V, ...) Tn##_##V(__VA_ARGS__)
 #define _call(V, T, ...) _cat2(_n(T), _##V)(__VA_ARGS__)
 
+#define _is_void_void _,
+#define _visitor_return(V, Tt) _visitor_return1(_visitor_##V##_ret(Tt))
+#define _visitor_return1(R) _visitor_return2(R)
+#define _visitor_return2(R) _visitor_return3(_is_void_##R, return)
+#define _visitor_return3(...) _visitor_return4(__VA_ARGS__)
+#define _visitor_return4(_0, return, ...) return
+
 #define _mono(T) _with(__mono, VISITOR, _split T)
-#define __mono(V, Tn, Tt, Tv) _visitor(ret)(Tt) Tn##_##V _visitor(sig)(Tt) { return Tv; }
+#define __mono(V, Tn, Tt, Tv) _visitor_##V##_ret(Tt) Tn##_##V _visitor_##V##_sig(Tt) { _visitor_return(V, Tt) Tv; }
 #define _mono_with_alias(T, A) _with(__mono_with_alias, A, VISITOR, _split T)
 #define __mono_with_alias(A, V, Tn, Tt, Tv)\
-    _visitor(ret)(Tt) Tn##_##V _visitor(sig)(Tt) { return Tv; }\
+    _visitor_##V##_ret(Tt) Tn##_##V _visitor(sig)(Tt) { _visitor_return(V, Tt) Tv; }\
     _visitor(ret)(Tt) A _visitor(sig)(Tt) { return Tn##_##V(_visitor(args)); }
 #define _This typeof(*this)
 #define _impl(T, ...) _with(__impl, VISITOR, _split T, __VA_ARGS__)
@@ -76,7 +87,7 @@
 #define _visit__struct_debug(N, Fs) ({\
     printf(#N " { ");\
     DO(_visit_struct_debug_each, Fs);\
-    printf("}"); _void;\
+    printf("}");\
 })
 #define _visit_struct_debug
 #define _visit_struct_debug_each(i, F) _visit_struct_debug##F
@@ -101,11 +112,11 @@
     if (false) {}\
     DO(_visit_enum_debug_each, Fs)\
     else {};\
-    printf(""); _void;\
+    printf(")");\
 })
 #define _visit_enum_debug _panic("unexepected tag in enum")
 #define _visit_enum_debug_each(i, F) else if (t->__tag == i) { _visit_enum_debug##F; }
-#define _visit_enum_debug_variant(N, T) printf(#N "("); _forward(__v T, &t->N); printf(")")
+#define _visit_enum_debug_variant(N, T) printf(#N "("); _forward(__v T, &t->N)
 // ----- eq -----
 
 // ===== Tuples =====
@@ -115,12 +126,14 @@
 #define _tuple2(M, V, Fs) (M, struct M { DO(_decl_tuple_field, Fs) }, _visit__tuple_##V(Fs))
 #define _decl_tuple_field(i, T) __t T _##i;
 #define _visit__tuple_VISITOR(...)
+// ----- debug -----
 #define _visit__tuple_debug(Fs) ({\
     printf("( ");\
     DO(_visit_tuple_debug_field, Fs);\
-    printf(")"); _void;\
+    printf(")");\
 })
 #define _visit_tuple_debug_field(i, T) _forward(__v T, &t->_##i); printf(", ");
+// ----- eq -----
 
 
 #endif // __CURST_H__

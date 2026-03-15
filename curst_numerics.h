@@ -19,25 +19,30 @@ typedef uint16_t  _u16;
 typedef uint32_t  _u32;
 typedef uint64_t  _u64;
 typedef size_t    _usize;
-typedef bool      _bool;
-typedef char      _chr;
+typedef char      _bool;
+typedef char      _char;
 typedef float     _f32;
 typedef double    _f64;
 
-#define i8    (i8,  int8_t,    _visit_mono(i08))
-#define i16   (i16, int16_t,   _visit_mono(i16))
-#define i32   (i32, int32_t,   _visit_mono(i32))
-#define i64   (i64, int64_t,   _visit_mono(i64))
-#define isize (isz, ptrdiff_t, _visit_mono(isz))
-#define u8    (u8,  uint8_t,   _visit_mono(u08))
-#define u16   (u16, uint16_t,  _visit_mono(u16))
-#define u32   (u32, uint32_t,  _visit_mono(u32))
-#define u64   (u64, uint64_t,  _visit_mono(u64))
-#define usize (usz, size_t,    _visit_mono(usz))
-#define bool  (b,   bool,      _visit_mono(bol))
-#define chr   (c,   char,      _visit_mono(chr))
-#define f32   (f32, float,     _visit_mono(f32))
-#define f64   (f64, double,    _visit_mono(f64))
+#define _for_all_numerics(M)\
+    M(i8) M(i16) M(i32) M(i64) M(isize)\
+    M(u8) M(u16) M(u32) M(u64) M(usize)\
+    M(bool) M(char) M(f32) M(f64)
+
+#define i8    (i8,  _i8,    _visit_mono(i08))
+#define i16   (i16, _i16,   _visit_mono(i16))
+#define i32   (i32, _i32,   _visit_mono(i32))
+#define i64   (i64, _i64,   _visit_mono(i64))
+#define isize (isz, _isize, _visit_mono(isz))
+#define u8    (u8,  _u8,    _visit_mono(u08))
+#define u16   (u16, _u16,   _visit_mono(u16))
+#define u32   (u32, _u32,   _visit_mono(u32))
+#define u64   (u64, _u64,   _visit_mono(u64))
+#define usize (usz, _usize, _visit_mono(usz))
+#define bool  (b,   _bool,  _visit_mono(bol))
+#define char  (c,   _char,  _visit_mono(chr))
+#define f32   (f32, _f32,   _visit_mono(f32))
+#define f64   (f64, _f64,   _visit_mono(f64))
 
 #define _visit_i08_VISITOR(...)
 #define _visit_i16_VISITOR(...)
@@ -68,6 +73,9 @@ typedef double    _f64;
 #define _visit_chr_debug(this) printf("'%c'",    *this)
 #define _visit_f32_debug(this) printf("%f",      *this)
 #define _visit_f64_debug(this) printf("%f",      *this)
+#define VISITOR debug
+_for_all_numerics(_mono)
+#undef VISITOR
 
 #define _visit_i08_eq(this, other) *this == *other
 #define _visit_i16_eq(this, other) *this == *other
@@ -82,7 +90,10 @@ typedef double    _f64;
 #define _visit_bol_eq(this, other) *this == *other
 #define _visit_chr_eq(this, other) *this == *other
 #define _visit_f32_eq(this, other) *this == *other
-#define  _visit_64_eq(this, other) *this == *other
+#define _visit_f64_eq(this, other) *this == *other
+#define VISITOR eq
+_for_all_numerics(_mono)
+#undef VISITOR
 
 #define _visit_i08_clone(this) *this
 #define _visit_i16_clone(this) *this
@@ -98,6 +109,9 @@ typedef double    _f64;
 #define _visit_chr_clone(this) *this
 #define _visit_f32_clone(this) *this
 #define _visit_f64_clone(this) *this
+#define VISITOR clone
+_for_all_numerics(_mono)
+#undef VISITOR
 
 #define _visit_i08_drop(this)
 #define _visit_i16_drop(this)
@@ -113,6 +127,9 @@ typedef double    _f64;
 #define _visit_chr_drop(this)
 #define _visit_f32_drop(this)
 #define _visit_f64_drop(this)
+#define VISITOR drop
+_for_all_numerics(_mono)
+#undef VISITOR
 
 
 #endif // __CURST_NUMERICS_H__
