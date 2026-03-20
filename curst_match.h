@@ -9,9 +9,9 @@
 
 #define _pb(B) _m_bind(B, __x)
 #define _pc(...) if(!(__VA_ARGS__)) __m=1; else
-#define _pe(N, V, ...) for(;__a && __x->__tag == N##_##V;__a=0) _pe_next(V, ##__VA_ARGS__, 1, 0, __VA_ARGS__)
+#define _pe(N, V, ...) if(__x->__tag != N##_##V) __m=1; else _pe_next(V, ##__VA_ARGS__, 1, 0, __VA_ARGS__)
 #define _ps(...) DO(_ps_each, (__VA_ARGS__))
-#define _pr(...) _m_bind(__x, *__x)
+#define _pr(...) _m_bind(__x, *__x) __VA_ARGS__
 
 #define _arm_guard(G) for(int __a=1;__m&&__a && (G);) for(__m=0;__a;__a=0)
 

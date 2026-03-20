@@ -117,54 +117,55 @@ _for_all_numerics(_mono)
 #define _q(...) __VA_ARGS__
 
 #define _Iter_fmt(Tv, len, this, f) fn(_i32,\
-	_i32 res = _q(_write(f, "[\n"));\
-	f->depth++;\
-	for (_i32 i=0; i<len; i++) {\
-		res += _q(_writef(f, "%*.s", f->depth*4, ""));\
-		res += _q(_forward(Tv, this->as_ptr+i, f));\
-		res += _q(_write(f, ",\n"));\
-	}\
-	f->depth--;\
-	res += _q(_writef(f, "%*.s]", f->depth*4, ""));\
-	_return(res);\
+    _i32 res = _q(_write(f, "[\n"));\
+    f->depth++;\
+    for (_i32 i=0; i<len; i++) {\
+        res += _q(_writef(f, "%*.s", f->depth*4, ""));\
+        res += _q(_forward(Tv, this->as_ptr+i, f));\
+        res += _q(_write(f, ",\n"));\
+    }\
+    f->depth--;\
+    res += _q(_writef(f, "%*.s]", f->depth*4, ""));\
+    _return(res);\
 )
 #define _visit__struct_fmt(N, Fs) fn(_i32,\
-	_i32 res = _q(_write(f, #N " {\n"));\
-	f->depth++;\
-	DO(_visit_struct_fmt_each, Fs);\
-	f->depth--;\
-	res += _q(_writef(f, "%*.s}", f->depth*4, ""));\
-	_return(res);\
+    _i32 res = _q(_write(f, #N " {\n"));\
+    f->depth++;\
+    DO(_visit_struct_fmt_each, Fs);\
+    f->depth--;\
+    res += _q(_writef(f, "%*.s}", f->depth*4, ""));\
+    _return(res);\
 )
 #define _visit_struct_fmt
 #define _visit_struct_fmt_each(i, F) _visit_struct_fmt##F
 #define _visit_struct_fmt_field(N, T) res += _q(_writef(f, "%*.s" #N ": ", f->depth*4, "")); res += _q(_forward(__v T, &t->N, f)); res += _q(_write(f, ",\n"));
 
 #define _visit__enum_fmt(N, Fs) fn(_i32,\
-	_i32 res = _q(_write(f, #N "::"));\
-	if (0) {}\
-	DO(_visit_enum_fmt_each, Fs);\
-	else _panic("unexpected tag in enum");\
-	res += _q(_write(f, ")"));\
-	_return(res);\
+    _i32 res = _q(_write(f, #N "::"));\
+    if (0) {}\
+    DO(_visit_enum_fmt_each, Fs);\
+    else _panic("unexpected tag in enum");\
+    res += _q(_write(f, ")"));\
+    _return(res);\
 )
 #define _visit_enum_fmt _panic("unexpected tag in enum")
 #define _visit_enum_fmt_each(i, F) else if (t->__tag == i) { _visit_enum_fmt##F; }
 #define _visit_enum_fmt_variant(N, T) res += _q(write(#N "(")); res += _q(_forward(__v T, &t->N, f))
 
 #define _visit__tuple_fmt(Fs) fn(_i32,\
-	_i32 res = _q(_write(f, "(\n"));\
-	f->depth++;\
-	DO(_visit_tuple_fmt_field, Fs);\
-	f->depth--;\
-	res += _q(_writef(f, "%*.s)" f->depth*4, ""));\
-	_return(res);\
+    _i32 res = _q(_write(f, "(\n"));\
+    f->depth++;\
+    DO(_visit_tuple_fmt_field, Fs);\
+    f->depth--;\
+    res += _q(_writef(f, "%*.s)" f->depth*4, ""));\
+    _return(res);\
 )
 #define _visit_tuple_fmt_field(i, T) res += _q(_writef(f, "%*.s", f->depth*4, "")); res += _q(_forward(__v T, &t->_##i)); res += _q(_write(f, ",\n"));
 
 #define _visit_Slc_fmt(Tv, this, f) _Iter_fmt(Tv, this->len, this, f)
 #define _visit_Vec_fmt(Tv, this, f) _Iter_fmt(Tv, this->len, this, f)
 #define _visit_Arr_fmt(N, Tv, this, f) _Iter_fmt(Tv, N, this, f)
+#define _visit_String_fmt(this, f) _q(_writef("%*.s", this->len, this->as_ptr))
 
 //================================================
 // write/writef implementations
@@ -173,9 +174,9 @@ _for_all_numerics(_mono)
 // String
 #define VISITOR write
 _impl(String, _This *this, const _char* strz) {
-	let(str, Str_newz(strz));
-	Vec_extend(this, str);
-	return str.len;
+    let(str, Str_newz(strz));
+    Vec_extend(this, str);
+    return str.len;
 }
 #undef VISITOR
 

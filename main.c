@@ -18,7 +18,7 @@
 
 #define User _struct(\
     User, (), (),\
-    _field(name, u32),\
+    _field(name, String),\
     _field(age, u8),\
     _field(tag, i32))
 #define _visit_User_debug(...) _derive(__VA_ARGS__)
@@ -115,7 +115,7 @@ int main() {
         printf("\n");
     }
     {
-        _t(User) u = { .age = 100 };
+        _t(User) u = { .name = String_from("Bertrand"), .age = 100 };
         #define VISITOR debug
         _visit(User, &u);
         #undef VISITOR
@@ -180,7 +180,7 @@ int main() {
             for (int j = 0; j < i; j++) {
                 Vec_push(&v, '0'+j);
             }
-	    Vec_extend(&v, v);
+        Vec_extend(&v, v);
             HashMap_insert(&h, i, v);
         }
         #define VISITOR debug
@@ -216,15 +216,48 @@ int main() {
         }
     }
     {
+        _t(Vec(Res(Opt(Res(i32, String)), i32))) v = {};
+        Vec_push(&v, Res_Err(1337));
+        Vec_push(&v, Res_Ok(Opt_None()));
+        Vec_push(&v, Res_Ok(Opt_Some(Res_Err(String_from("unknown")))));
+        Vec_push(&v, Res_Ok(Opt_Some(Res_Ok(42))));
+        Vec_push(&v, Res_Ok(Opt_Some(Res_Ok(43))));
+        for (_u32 i = 0; i < v.len; i++) {
+            printf("element %d: ", i);
+            _match(&v.as_ptr[i]) {
+                _arm(_pe(Res, Err, _pb(e))) {
+                    printf("top level error: %d\n", *e);
+                }
+                _arm(_pe(Res, Ok, _pe(Opt, Some, _pe(Res, Ok, _pb(x)_pc(*x == 42))))) {
+                    printf("the universal answer\n");
+                }
+                _arm(_pe(Res, Ok, _pe(Opt, Some, _pe(Res, Err, _pb(msg))))) {
+                    printf("error: \"%s\"\n", msg->as_ptr);
+                }
+                _arm(_pe(Res, Ok, _pe(Opt, Some, _pe(Res, Ok, _pb(x))))) {
+                    printf("ok: %d\n", *x);
+                }
+                _arm(_pb(other)) {
+                    printf("other: ");
+                    #define VISITOR debug
+                    _visit(Res(Opt(Res(i32, String)), i32), other);
+                    #undef VISITOR
+                    printf("\n");
+                }
+            }
+        }
+        printf("\n");
+    }
+    {
         _t(Arr(6, i32)) a = {{ 1, 2, 3, 4, 5, 6 }};
-	// _foreach(i, in(a)) {
-	// 	printf("%d ", i);
-	// }
-	printf("\n");
+    // _foreach(i, in(a)) {
+    //     printf("%d ", i);
+    // }
+    printf("\n");
         _t(Vec(i32)) v = {};
-	let(s, _as_slice(&v));
-	s = _as_slice(&a);
-	printf("%d %d %d\n", sizeof(a), sizeof(v), sizeof(s));
+    let(s, _as_slice(&v));
+    s = _as_slice(&a);
+    printf("%d %d %d\n", sizeof(a), sizeof(v), sizeof(s));
     }
 
     let(hello, Str_new("hello"));
@@ -232,18 +265,27 @@ int main() {
     Vec_extend(&s, hello);
     Vec_extend(&s, Str_new(" world"));
     Vec_push(&s, '!');
-#define VISITOR debug
-    _visit(Str, &s);
-#undef VISITOR
+    #define VISITOR debug
+    _visit(String, &s);
+    #undef VISITOR
     Vec_push(&s, 0);
     printf("\n");
     printf("String { len: %d, cap: %d, ptr: \"%s\" }\n", s.len, s.cap, s.as_ptr);
 
     _t(MyTuple(i32, i32)) t = { .a = 42, .b = 1337 };
-    _fat_ptr l = Fat_new(MyTuple(i32, i32), fmt, &t);
+    _fat_ptr l1 = Fat_new(MyTuple(i32, i32), fmt, &t);
+    let(dy, Dyn_new(MyTuple(i32, i32), (fmt, debug), &t));
+    printf("===\n");
+    Dyn_call(debug, &dy);
+    Dyn_call(debug, &dy);
+    Dyn_call(debug, &dy);
+    _fat_ptr l2 = Dyn_into(debug, dy);
+    Fat_call(debug, l2);
+    printf("\n===\n");
 
     s.len--;
-    String_writeln_fmt(&s, "--%?--", l);
-    println("==%?==", l);
+    String_writeln_fmt(&s, "--%?--", l1);
+    println("==%?==", l1);
+    Vec_push(&s, 0);
     printf("String { len: %d, cap: %d, ptr: \"%s\" }\n", s.len, s.cap, s.as_ptr);
 }

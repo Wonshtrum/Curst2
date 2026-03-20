@@ -117,11 +117,6 @@ struct Range {
 
 
 
-// ===== String Slice =====
-#define Str Slc(char)
-#define Str_new(x) (_t(Str)){ .len = sizeof(x)-1, .as_ptr = (x) }
-#define Str_newz(x) (_t(Str)){ .len = strlen(x), .as_ptr = (_char*)(x) }
-
 // ===== Vector =====
 #define Vec(T) _w(_Vec, _split T)
 #define _Vec(Tn, Tt, Tv) (_v##Tn, struct _v##Tn {\
@@ -175,37 +170,69 @@ struct Range {
 #define Vec_push(_this, val) do {\
     _shadow(this, _this);\
     Vec_reserve(this, 1);\
-    this->as_ptr[this->len++] = val;\
+    this->as_ptr[this->len++] = (typeof(*this->as_ptr))val;\
 } while(0)
 #define Vec_extend(_this, _slc) do {\
-	_shadow(this, _this);\
-	_shadow(slc, _slc);\
-	Vec_reserve(this, slc.len);\
-	memcpy(this->as_ptr + this->len, slc.as_ptr, slc.len * sizeof(*slc.as_ptr));\
-	this->len += slc.len;\
+    _shadow(this, _this);\
+    _shadow(slc, _slc);\
+    Vec_reserve(this, slc.len);\
+    memcpy(this->as_ptr + this->len, slc.as_ptr, slc.len * sizeof(*slc.as_ptr));\
+    this->len += slc.len;\
 } while(0)
 
+
 // ===== String =====
-// #define String (_vc, struct _vc {\
-//         _slice_type(c, _char);\
-//         _u32 cap; _u32 len; _char *as_ptr;\
-//     }, _visit_mono(Sring))
-// #define _visit_String_VISITOR(...)
-// // ----- debug -----
-// #define _visit_String_debug(Tv, this) printf("%.*s", this->len, this->as_ptr)
-// // ----- eq -----
-// #define _visit_String_eq(Tv, this, other) _Iter_eq(Tv, this->len, other->len, this, other)
-// // ----- clone -----
-// #define _visit_Vec_clone(Tv, this) ({\
-// })
-// // ----- drop -----
-// #define _visit_Vec_drop(Tv, this) ({\
-//     free(this->as_ptr);\
-//     *this = (typeof(*this)){};\
-// })
-#define String Vec(char)
+#define String (_vc, struct _vc {\
+        _slice_type(c, _char);\
+        _u32 cap; _u32 len; _char *as_ptr;\
+    }, _visit_mono(String))
+#define _visit_String_VISITOR(...)
+// ----- debug -----
+#define _visit_String_debug(this) printf("\"%.*s\"", this->len, this->as_ptr)
+// ----- eq -----
+#define _visit_String_eq(this, other) (this->len==other->len && memcmp(this->as_ptr, other->as_ptr)==0)
+// ----- clone -----
+#define _visit_String_clone(this) ({\
+    typeof(*this) res = {};\
+    res.len = this->len;\
+    res.cap = res.len;\
+    res.as_ptr = malloc(res.len);\
+    if (!res.as_ptr) _panic("String_clone: malloc failed");\
+    memcpy(res.as_ptr, this->as_ptr, res.len);\
+    res;\
+})
+// ----- drop -----
+#define _visit_String_drop(this) ({\
+    free(this->as_ptr);\
+    *this = (typeof(*this)){};\
+})
+
+// ----- Implementations -----
 #define String_new() Vec_new(char)
 #define String_with_capacity(n) Vec_with_capacity(char, n)
+#define String_from(x) ({\
+    struct _vc res;\
+    res.len = sizeof(x);\
+    res.as_ptr = malloc(res.len);\
+    if (!res.as_ptr) _panic("String_from: malloc failed");\
+    memcpy(res.as_ptr, x, res.len);\
+    res;\
+})
+#define String_fromz(x) {(\
+    struct _vc res;\
+    res.len = strlen(x);\
+    res.as_ptr = malloc(res.len);\
+    if (!res.as_ptr) _panic("String_fromz: malloc failed");\
+    memcpy(res.as_ptr, x, res.len);\
+    res;\
+})
+
+
+// ===== String Slice =====
+#define Str Slc(char)
+#define Str_new(x) (_t(Str)){ .len = sizeof(x)-1, .as_ptr = (x) }
+#define Str_newz(x) (_t(Str)){ .len = strlen(x), .as_ptr = (_char*)(x) }
+
 
 // ===== Array =====
 #define Arr(N, T) _w(_Arr, N, _split T)
@@ -233,6 +260,7 @@ struct Range {
         _forward(Tv, this->as_ptr+i);\
     }\
 })
+
 
 // ===== HashMap =====
 #define HashMap(K, V) _w(_HashMap, _split K, _split V)
@@ -340,18 +368,19 @@ struct Range {
     res;\
 })
 
+
 // ===== Result =====
 enum Res_tags { Res_Ok=0, Res_Err=1 };
-#define Res(T, E) _w(VISITOR, T, E)
-#define _Res(V, Tn, Tt, Tv, En, Et, Ev) (_r##Tn##En, struct _r##Tn##En { enum Res_tags __tags; union { Tt Ok; Et Err; }; }, _visitor_Res_##V(Tv, Ev, _visit_##V##_args))
+#define Res(T, E) _w(_Res, VISITOR, _split T, _split E)
+#define _Res(V, Tn, Tt, Tv, En, Et, Ev) (_r##Tn##En, struct _r##Tn##En { enum Res_tags __tag; union { Tt Ok; Et Err; }; }, _visit_Res_##V(Tv, Ev, _visitor_##V##_args))
 #define _visit_Res_VISITOR(...)
 // ----- debug -----
 #define _visit_Res_debug(Tv, Ev, this) ({\
     if (this->__tag == 0) {\
-        printf("Res::Ok(");\
+        printf("Ok(");\
         _forward(Tv, &this->Ok);\
     } else {\
-        printf("Res::Err(");\
+        printf("Err(");\
         _forward(Ev, &this->Err);\
     }\
     printf(")");\
@@ -381,19 +410,23 @@ enum Res_tags { Res_Ok=0, Res_Err=1 };
         _forward(Ev, &this->Err);\
 })
 
+// ----- Implementations -----
+#define Res_Ok(x) { .__tag=0, .Ok=x }
+#define Res_Err(x) { .__tag=1, .Err=x }
+
+
 // ===== Option =====
 enum Opt_tags { Opt_Some=0, Opt_None=1 };
-#define Opt(T) _w(VISITOR, T)
-#define _Opt(V, Tn, Tt, Tv) (_o##Tn, struct _o##Tn { enum Opt_tags __tags; union { Tt Some; _unit None; }; }, _visitor_Opt_##V(Tv, _visit_##V##_args))
+#define Opt(T) _w(_Opt, VISITOR, _split T)
+#define _Opt(V, Tn, Tt, Tv) (_o##Tn, struct _o##Tn { enum Opt_tags __tag; union { Tt Some; _unit None; }; }, _visit_Opt_##V(Tv, _visitor_##V##_args))
 #define _visit_Opt_VISITOR(...)
 // ----- debug -----
 #define _visit_Opt_debug(Tv, this) ({\
     if (this->__tag == 0) {\
-        printf("Opt::Some(");\
+        printf("Some(");\
         _forward(Tv, &this->Some);\
         printf(")");\
-    else\
-        printf("Opt::None");\
+    } else printf("None");\
 })
 // ----- eq -----
 #define _visit_Opt_eq(Tv, this, other) ({\
@@ -415,6 +448,12 @@ enum Opt_tags { Opt_Some=0, Opt_None=1 };
         _forward(Tv, &this->Some);\
 })
 
+// ----- Implementations -----
+#define Opt_Some(x) { .__tag=0, .Some=x }
+#define Opt_None() { .__tag=1 }
+
+
+// ===== File =====
 #define File (_f, FILE, _visit_mono(File))
 #define _visit_File_VISITOR(...)
 // ----- debug -----
@@ -422,36 +461,42 @@ enum Opt_tags { Opt_Some=0, Opt_None=1 };
 
 
 // ===== Dynamic =====
-// TODO: field decl
 #define Dyn(...) _Dyn1(_cat2(_d, CAT(DO(_mangle_C, (__VA_ARGS__)))), VISITOR, (__VA_ARGS__))
 #define _Dyn1(...) _Dyn2(__VA_ARGS__)
-#define _Dyn2(M, V, Fs) (M, struct M { DO(_decl_dyn_method, Fs) }, _visit_##V(_visit_Dyn(V, _visitor_##V##_args)))
+#define _Dyn2(M, V, Fs) (M, struct M { void *data; DO(_decl_dyn_method, Fs) }, _visit_##V(_visit_Dyn(V, _visitor_##V##_args)))
+#define _decl_dyn_method(i, V) _visitor_##V##_ret(_not_dyn_compatible(V))(*V)_visitor_##V##_sig(void);
+#define _not_dyn_compatible(V) __##V##_is_not_dyn_compatible__
+
 // ----- Dyn derives all its visitors -----
-#define _visitor_Dyn(V, this, ...) Dyn_call(V, *this, this, __VA_ARGS__)
+#define _visitor_Dyn(V, this, ...) Dyn_call(V, *this, this, ##__VA_ARGS__)
 
 // ----- Implementations -----
-#define Dyn_new(T, Fs, x) _t(Dyn Fs){  }
+#define Dyn_new(T, Fs, x) Dyn_new1(_split T, Fs, x)
+#define Dyn_new1(...) Dyn_new2(__VA_ARGS__)
+#define Dyn_new2(Tn, Tt, Tv, Fs, x) (_t(Dyn Fs)){ .data = x DO_WITH(_set_dyn_method, Tn, Fs) }
+#define _set_dyn_method(i, N, V) , .V = (void*)N##_##V
+
 #define Dyn_call(V, _x, ...) ({\
-	_shadow(__x, _x);\
-	_visitor_##V##_ret(__NOT_DYN_COMPATIBLE__) res = (_visitor_typeof(V, void)__x->V)(__x->data, __VA_ARGS__);\
-	res;\
+    _shadow(__x, _x);\
+    _visitor_##V##_ret(_not_dyn_compatible(V)) *__dyn_guard;\
+    (_visitor_typeof(V, void)__x->V)(__x->data, ##__VA_ARGS__);\
 })
 #define Dyn_into(V, _x) ({\
-	_shadow(__x, _x);\
-	_fat_ptr res = { .data = __x.data, .func = __x.V };\
-	res;\
+    _shadow(__x, _x);\
+    _fat_ptr res = { .data = __x.data, .func = __x.V };\
+    res;\
 })
 
 // ----- Fat Pointer -----
 typedef struct Fat {
-	void *data;
-	void *func;
+    void *data;
+    void *func;
 } _fat_ptr;
 #define Fat_new(T, V, x) (_fat_ptr){ .data = (x), .func = _m(T, V) }
 #define Fat_call(V, _x, ...) ({\
-	_shadow(__x, _x);\
-	_visitor_##V##_ret(__NOT_DYN_COMPATIBLE__) res = (_visitor_typeof(V, void)__x.func)(__x.data, __VA_ARGS__);\
-	res;\
+    _shadow(__x, _x);\
+    _visitor_##V##_ret(_not_dyn_compatible(V)) *__dyn_guard;\
+    (_visitor_typeof(V, void)__x.func)(__x.data, ##__VA_ARGS__);\
 })
 
 

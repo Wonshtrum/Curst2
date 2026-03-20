@@ -119,6 +119,8 @@
 #define _visit_enum_debug_variant(N, T) printf(#N "("); _forward(__v T, &t->N)
 // ----- eq -----
 
+#define _enum_new(N, F, x) { .__tag=N##_##F, .F=x }
+
 // ===== Tuples =====
 #define _T(...) _tuple(__VA_ARGS__)
 #define _tuple(...) _tuple1(CAT(_q DO(_mangle_T, (__VA_ARGS__)), p), VISITOR, (__VA_ARGS__))

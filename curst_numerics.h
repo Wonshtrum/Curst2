@@ -8,6 +8,7 @@
 
 #define unit _T()
 typedef _t(unit) _unit;
+const _unit UNIT = {};
 
 typedef int8_t    _i8;
 typedef int16_t   _i16;
